@@ -11,6 +11,23 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+func fcntl(fd uintptr, cmd uintptr, arg uintptr) (val int, err error) {
+	r0, _, e1 := syscall.Syscall(syscall.SYS_FCNTL, fd, cmd, arg)
+	val = int(r0)
+	if e1 != 0 {
+		err = e1
+	}
+	return
+}
+
+func isBlocking(fd uintptr) bool {
+	val, err := fcntl(fd, syscall.F_GETFL, 0)
+	if err != nil {
+		panic(err)
+	}
+	return val & syscall.O_NONBLOCK == 0
+}
+
 func RunE(cmd *cobra.Command, args []string) error {
 
 	verbosity, err := cmd.Flags().GetCount("verbose")
@@ -127,6 +144,7 @@ func RunE(cmd *cobra.Command, args []string) error {
 						return nil, err
 					}
 					defer f.Close()
+					log.Debugf("isBlocking: %v\n", isBlocking(f.Fd()))
 					cmd := exec.Command(command[0], command[1:]...)
 					cmd.Stdin = f
 					cmd.Stdout = f
