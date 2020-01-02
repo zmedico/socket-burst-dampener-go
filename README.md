@@ -30,7 +30,7 @@ Flags:
       --ipv4                   prefer IPv4
       --ipv6                   prefer IPv6
       --load-average float32   don't accept multiple connections unless load is below
-      --processes uint         maximum number of concurrent processes (default 1)
+      --processes uint         maximum number of concurrent processes, 0 means unbounded (default 1)
   -v, --verbose count          verbose logging (each occurence increases verbosity)
 ```
 ## Example with rsync

@@ -99,7 +99,7 @@ func RunE(cmd *cobra.Command, args []string) error {
 	accepting := true
 
 	acceptable_load := func() bool {
-		return load_average == 0.0 || len(processMap) < 1 || (uint(len(processMap)) < processes && current_load() < load_average)
+		return load_average == 0.0 || len(processMap) < 1 || current_load() < load_average
 	}
 
 	accept := func(l *net.TCPListener, c chan *net.TCPConn) {
@@ -145,7 +145,7 @@ func RunE(cmd *cobra.Command, args []string) error {
 					pidChan <- cmd.Process.Pid
 				} (cmd, pidChan)
 
-				if !acceptable_load() {
+				if uint(len(processMap)) == processes || !acceptable_load() {
 					accepting = false
 				} else {
 					go accept(l, acceptChan)
@@ -177,7 +177,7 @@ func InitRootCmd() *cobra.Command {
 	flags.Bool("ipv4", false, "prefer IPv4")
 	flags.Bool("ipv6", false, "prefer IPv6")
 	flags.Float32("load-average", 0.0, "don't accept multiple connections unless load is below")
-	flags.Uint("processes", 1, "maximum number of concurrent processes")
+	flags.Uint("processes", 1, "maximum number of concurrent processes, 0 means unbounded")
 	flags.CountP("verbose", "v", "verbose logging (each occurence increases verbosity)")
 
 	return rootCmd
