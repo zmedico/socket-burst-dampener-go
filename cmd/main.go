@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 	"net"
 	"os"
 	"os/exec"
-	"syscall"
 	"strconv"
-	"github.com/spf13/cobra"
-	log "github.com/sirupsen/logrus"
+	"syscall"
 )
 
 func RunE(cmd *cobra.Command, args []string) error {
@@ -118,45 +118,45 @@ func RunE(cmd *cobra.Command, args []string) error {
 
 	for {
 		select {
-			case conn := <- acceptChan:
-				log.Debug("request start\n")
-				cmd, err := func(conn *net.TCPConn, command []string) (*exec.Cmd, error) {
-					defer conn.Close()
-					f, err := conn.File()
-					if err != nil {
-						return nil, err
-					}
-					defer f.Close()
-					cmd := exec.Command(command[0], command[1:]...)
-					cmd.Stdin = f
-					cmd.Stdout = f
-					cmd.Stderr = os.Stderr
-					err = cmd.Start()
-					return cmd, err
-				} (conn, command)
-
+		case conn := <-acceptChan:
+			log.Debug("request start\n")
+			cmd, err := func(conn *net.TCPConn, command []string) (*exec.Cmd, error) {
+				defer conn.Close()
+				f, err := conn.File()
 				if err != nil {
-					return err
+					return nil, err
 				}
-				processMap[cmd.Process.Pid] = cmd
+				defer f.Close()
+				cmd := exec.Command(command[0], command[1:]...)
+				cmd.Stdin = f
+				cmd.Stdout = f
+				cmd.Stderr = os.Stderr
+				err = cmd.Start()
+				return cmd, err
+			}(conn, command)
 
-				go func (cmd *exec.Cmd, pidChan chan int) {
-					cmd.Wait()
-					pidChan <- cmd.Process.Pid
-				} (cmd, pidChan)
+			if err != nil {
+				return err
+			}
+			processMap[cmd.Process.Pid] = cmd
 
-				if uint(len(processMap)) == processes || !acceptable_load() {
-					accepting = false
-				} else {
-					go accept(l, acceptChan)
-				}
-			case pid := <- pidChan:
-				delete(processMap, pid)
-				log.Debug("request end\n")
-				if !accepting && acceptable_load() {
-					accepting = true
-					go accept(l, acceptChan)
-				}
+			go func(cmd *exec.Cmd, pidChan chan int) {
+				cmd.Wait()
+				pidChan <- cmd.Process.Pid
+			}(cmd, pidChan)
+
+			if uint(len(processMap)) == processes || !acceptable_load() {
+				accepting = false
+			} else {
+				go accept(l, acceptChan)
+			}
+		case pid := <-pidChan:
+			delete(processMap, pid)
+			log.Debug("request end\n")
+			if !accepting && acceptable_load() {
+				accepting = true
+				go accept(l, acceptChan)
+			}
 		}
 	}
 	return nil
@@ -167,7 +167,7 @@ func InitRootCmd() *cobra.Command {
 		Use:   "socket-burst-dampener PORT CMD [ARG [ARG ...]]",
 		Short: "A daemon that spawns a specified command to handle each connection, and dampens connection bursts",
 		Args:  cobra.MinimumNArgs(2),
-		RunE: RunE,
+		RunE:  RunE,
 	}
 
 	flags := rootCmd.PersistentFlags()
